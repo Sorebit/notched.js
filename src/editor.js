@@ -21,11 +21,14 @@ mapCanvas.addEventListener("mousedown", clickHandler, false);
 document.addEventListener("mouseup", clickUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
 document.addEventListener("keydown", keyDownHandler, false);
+document.addEventListener("keyup", keyUpHandler, false);
 var mouseDown = false;
 
 var lastX = null, lastY = null;
 var offsetX = 0, offsetY = 0;
 var maxOffsetX = Math.max(0, (COLS*16)-mapCanvas.width), maxOffsetY = Math.max(28, (ROWS*16)-mapCanvas.height+28);
+
+var showMinimap = false;
 
 function loadLevel(level)
 {
@@ -121,7 +124,7 @@ function minimap()
 	var my = 7;
 	map2d.beginPath();
 	map2d.rect(mx, my, 2*COLS+2, 2*ROWS+2);
-	map2d.fillStyle = "#000000";
+	map2d.fillStyle = "#252825";
 	map2d.fill();
 	map2d.closePath();
 
@@ -131,8 +134,19 @@ function minimap()
 		{
 			var block = getBlockById(map[y][x].id);
 			map2d.drawImage(tileset, map[y][x].tilesetX+4, map[y][x].tilesetY+4, 2, 2, mx+x*2+1, my+y*2+1, 2, 2);
-		}		
+		}
 	}
+	map2d.beginPath();
+	map2d.rect(Math.floor(mx+offsetX/8)+2, Math.floor(my+offsetY/8)+2, 384/8-2, 256/8-2);
+	map2d.strokeStyle = "#ffffff";
+	map2d.stroke();
+	map2d.closePath();	
+}
+
+function toggleMinimap()
+{
+	showMinimap ^= 1;
+	tick();
 }
 
 function tick()
@@ -147,7 +161,8 @@ function tick()
 	}
 	cursor.draw();
 	drawGUI();
-	minimap();
+	if(showMinimap)
+		minimap();
 }
 
 // Keyboard
@@ -163,6 +178,14 @@ function keyDownHandler(event)
 	{
 		cursor.selectedBlock = 9;
 		tick();
+	}
+}
+
+function keyUpHandler(event)
+{
+	if(event.keyCode == 77)
+	{
+		toggleMinimap();
 	}
 }
 

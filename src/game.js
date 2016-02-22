@@ -25,9 +25,18 @@ var mapCanvas = document.getElementById("game");
 var map2d = mapCanvas.getContext("2d");
 
 mapCanvas.addEventListener("mousedown", clickHandler, false);
+mapCanvas.addEventListener("mouseup", clickUpHandler, false);
+document.addEventListener("mousemove", mouseMoveHandler, false);
 document.addEventListener("keydown", keyDownHandler, false);
+var mouseDown = false;
 
-function getTileById(id)
+var ROWS = 18;
+var COLS = 18;
+var lastX = null, lastY = null;
+var offsetX = 0, offsetY = 0;
+var maxOffsetX = Math.max(0, (COLS*16)-mapCanvas.width), maxOffsetY = Math.max(0, (ROWS*16)-mapCanvas.height);
+
+function getBlockById(id)
 {
 	var x = null, y = null, connects = null;
 	switch(id)
@@ -45,7 +54,7 @@ function getTileById(id)
 		// stone
 		case 5: x = 0; y = 8*6; connects = 1; break;
 		// wire 
-		case 6: x = 0; y = 8*9; connects = 1; break;
+		case 6: x = 0; y = 8*9; connects = 3; break;
 		// undefined
 		default: x = 64; y = 24; connects = 0;
 	}
@@ -60,7 +69,7 @@ function Block(blockID)
 
 	// @tilesetX, tilesetY
 	// upper left corner in tileset
-	var tile = getTileById(blockID);
+	var tile = getBlockById(blockID);
 	this.tilesetX = tile[0];
 	this.tilesetY = tile[1];
 	this.x = null;
@@ -70,14 +79,12 @@ function Block(blockID)
 	// 0 single - doesn't connect
 	// 1 multi - connects with other of the same type
 	// 2 row - connects only to left or right
+	// 3 wire-like - the middle block is changed differently
 	this.connects = tile[2];
 }
 
-var ROWS = 16;
-var COLS = 16;
 var map = [];
 for(var y = 0; y < ROWS; ++y) { map[y] = []; }
-
 
 Block.prototype = {
 	// Graphics
@@ -92,10 +99,10 @@ Block.prototype = {
 		// single
 		if(this.connects == 0)
 		{
-			map2d.drawImage(tileset, tx, ty, 16, 16, x*16, y*16, 16, 16);
+			map2d.drawImage(tileset, tx, ty, 16, 16, x*16-offsetX, y*16-offsetY, 16, 16);
 		}
 		// multi
-		else if(this.connects == 1)
+		else if(this.connects == 1 || this.connects == 3)
 		{
 			var x1 = tx,    y1 = ty;
 			var x2 = tx+16, y2 = ty;
@@ -111,7 +118,7 @@ Block.prototype = {
 			// one down
 			if(y < ROWS-1 && map[y+1][x].blockID == id)
 			{
-				y3 -= 8;
+				y3 -= 8;1
 				y4 -= 8;
 			}
 			// one left
@@ -150,34 +157,36 @@ Block.prototype = {
 				x4 = 8*3;
 				y4 = ty;
 			}
-			map2d.drawImage(tileset, x1, y1, 8, 8, x*16,   y*16,   8, 8);
-			map2d.drawImage(tileset, x2, y2, 8, 8, x*16+8, y*16,   8, 8);-
-			map2d.drawImage(tileset, x3, y3, 8, 8, x*16,   y*16+8, 8, 8);
-			map2d.drawImage(tileset, x4, y4, 8, 8, x*16+8, y*16+8, 8, 8);
+			map2d.drawImage(tileset, x1, y1, 8, 8, x*16-offsetX,   y*16-offsetY,   8, 8);
+			map2d.drawImage(tileset, x2, y2, 8, 8, x*16+8-offsetX, y*16-offsetY,   8, 8);-
+			map2d.drawImage(tileset, x3, y3, 8, 8, x*16-offsetX,   y*16+8-offsetY, 8, 8);
+			map2d.drawImage(tileset, x4, y4, 8, 8, x*16+8-offsetX, y*16+8-offsetY, 8, 8);
 
-			// Check only wires beyond this point
-			if(map[y][x].blockID != 6)
+			// Check only wire-like beyond this point
+			if(map[y][x].connects != 3)
 				return;
 			var wireCount = 0;
 			for(var sy = -1; sy <= 0; ++sy)
 			{
 				for(var sx = -1; sx <= 0; ++sx)
 				{
-					wireCount = 0;
+					neigh = 0;
 					for(var cy = 0; cy <= 1; ++cy)
 					{
 						for(var cx = 0; cx <= 1; ++cx)
 						{
 							if(y+sy+cy >= 0 && y+sy+cy < ROWS && x+sx+cx >= 0 && x+sx+cx < COLS)
 							{
-								if(map[y+sy+cy][x+sx+cx].blockID == 6)
-								++wireCount;
+								if(map[y+sy+cy][x+sx+cx].blockID == map[y][x].blockID)
+								{
+									++neigh;
+								}
 							}
 						}
 					}
-					if(wireCount == 4)
+					if(neigh == 4)
 					{
-						map2d.drawImage(tileset, 24, 72, 16, 16, (x+sx)*16+8, (y+sy)*16+8, 16, 16);
+						map2d.drawImage(tileset, tx+8*3, ty, 16, 16, (x+sx)*16+8-offsetX, (y+sy)*16+8-offsetY, 16, 16);
 					}
 				}
 			}
@@ -196,8 +205,8 @@ Block.prototype = {
 			{
 				x2 -= 8*2;
 			}
-			map2d.drawImage(tileset, x1, ty, 8, 16, x*16,   y*16, 8, 16);
-			map2d.drawImage(tileset, x2, ty, 8, 16, x*16+8, y*16, 8, 16);
+			map2d.drawImage(tileset, x1, ty, 8, 16, x*16-offsetX,   y*16-offsetY, 8, 16);
+			map2d.drawImage(tileset, x2, ty, 8, 16, x*16+8-offsetX, y*16-offsetY, 8, 16);
 
 		}
 		
@@ -205,7 +214,7 @@ Block.prototype = {
 	changeType: function(newID)
 	{
 		this.blockID = newID;
-		var tile = getTileById(newID);
+		var tile = getBlockById(newID);
 		this.tilesetX = tile[0];
 		this.tilesetY = tile[1];
 		this.connects = tile[2];
@@ -219,7 +228,7 @@ for(var y = 0; y < ROWS; ++y)
 	{
 		var id, type;
 		if(x == 0 || y == 0 || x == COLS-1 || y == ROWS-1)
-			id = 0; 
+			id = 0;
 		else if(rand(0, 100) < 35)
 		{
 			id = [0, 1, 5][rand(0, 2)];
@@ -242,7 +251,7 @@ function Cursor(x, y)
 	this.selectedBlock = 0;
 }
 Cursor.prototype = {
-	draw: function() { map2d.drawImage(tileset, 12*8, 0, 16, 16, this.x*16, this.y*16, 16, 16); }
+	draw: function() { map2d.drawImage(tileset, 12*8, 0, 16, 16, this.x*16-offsetX, this.y*16-offsetY, 16, 16); }
 };
 
 var cursor = new Cursor(0, 0);
@@ -251,12 +260,12 @@ function drawGUI()
 {
 	var guiX = (mapCanvas.width - 184)/2;
 	var guiY = (mapCanvas.height - 24);
-	map2d.drawImage(guiImg, 0, 126, 184, 22, guiX, guiY, 184, 22);
+	map2d.drawImage(guiImg, 0, 126, 184, 22, guiX, guiY, 184, 22);1
 
 	var x1, x2, x3, x4, y1, y2, y3, y4, ty, tx, connects;
 	for(var block = 0; block < 10; ++block)
 	{
-		tile = getTileById(block);
+		tile = getBlockById(block);
 		tx = tile[0];
 		ty = tile[1];
 		connects = tile[2];
@@ -266,7 +275,7 @@ function drawGUI()
 			map2d.drawImage(tileset, tx, ty, 16, 16, guiX+block*18+3, guiY+3, 16, 16);
 		}
 		// multi
-		else if(connects == 1)
+		else if(connects == 1 || connects == 3)
 		{
 			map2d.drawImage(tileset, tx,    ty,    8, 8, guiX+block*18+3,  guiY+3, 8, 8);
 			map2d.drawImage(tileset, tx+16, ty,    8, 8, guiX+block*18+11, guiY+3, 8, 8);
@@ -346,12 +355,16 @@ function fillWithBlock(x, y, oldID, newID)
 
 function mapClick(event)
 {
-	var x = event.clientX;
-	var y = event.clientY;
-	x -= mapCanvas.offsetLeft;
-	y -= mapCanvas.offsetTop;
+	var x = event.clientX - mapCanvas.offsetLeft + offsetX*4;
+	var y = event.clientY - mapCanvas.offsetTop + offsetY*4;
+
 	nx = Math.floor(x/64);
 	ny = Math.floor(y/64);
+
+	// check if we actually click on the map
+	if(nx > COLS-1 || ny > ROWS-1)
+		return;
+
 	if(event.button == 0)
 	{
 		// draw a rectangle with shift
@@ -389,6 +402,7 @@ function mapClick(event)
 	{
 			fillWithBlock(nx, ny, map[ny][nx].blockID, cursor.selectedBlock);
 	}
+	mouseDown = true;
 	// update cursor
 	cursor.x = nx;
 	cursor.y = ny;
@@ -410,6 +424,7 @@ function guiClick(event)
 
 function clickHandler(event)
 {
+	event.preventDefault();
 	var guiX = (mapCanvas.width - 184)/2;
 	var guiY = (mapCanvas.height - 24);
 	// if clicked on gui
@@ -425,15 +440,46 @@ function clickHandler(event)
 	}
 }
 
+function clickUpHandler(event)
+{
+	console.log("mouse up");
+	mouseDown = false;
+	lastY = lastX = null;
+}
+
+function mouseMoveHandler(event)
+{
+	if(mouseDown)
+	{
+		var relativeX = Math.floor((event.clientX - mapCanvas.offsetLeft)/4);
+		var relativeY = Math.floor((event.clientY - mapCanvas.offsetTop)/4);
+		if(lastX == null)
+		{
+			lastX = relativeX;
+		}
+		if(lastY == null)
+		{
+			lastY = relativeY;
+		}
+		var dx = lastX - relativeX;
+		var dy = lastY - relativeY;
+		offsetX = Math.min(Math.max(0, offsetX+dx), maxOffsetX);
+		offsetY = Math.min(Math.max(0, offsetY+dy), maxOffsetY);
+		lastX = relativeX;
+		lastY = relativeY;
+		tick();
+	}
+}
+
 // export map
 function getRawMap()
 {
 	var c = document.getElementById("data");
 	c.innerHTML = "[";
-	for(var y = 0; y < COLS; ++y)
+	for(var y = 0; y < ROWS; ++y)
 	{
 		c.innerHTML += "["
-		for(var x = 0; x < ROWS; ++x)
+		for(var x = 0; x < COLS; ++x)
 		{
 			c.innerHTML += map[y][x].blockID + ", ";
 		}
@@ -458,4 +504,27 @@ function getRawMap()
 	}
 }
 
+var dx = 1, dy = 1, frame = 0;
+
+function fr()
+{
+	if(++frame == 2)
+	{
+		frame = 0;
+		offsetX += dx;
+		offsetY += dy;
+	}
+	if(offsetX <= 0 || offsetX >= 34)
+	{
+		dx = -dx;
+		offsetX += dx;
+	}
+	if(offsetY <= 0 || offsetY >= 18)
+	{
+		dy = -dy;
+		offsetY += dy;
+	}
+	tick();
+}
 tick();
+// setInterval(fr, 20);

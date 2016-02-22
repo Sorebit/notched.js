@@ -6,7 +6,7 @@
 	<link rel="stylesheet" type="text/css" href="style.css"> 
 </head>
 <body>
-	<canvas id="game" height="256" width="256" oncontextmenu="return false;"></canvas>
+	<canvas id="game" height="256" width="384" oncontextmenu="return false;"></canvas>
 	<div id="sidebar">
 		<h2>How to use the editor</h2>
 		<ul>
@@ -22,7 +22,10 @@
 		<p id="data"></p>
 		<button type="button" onclick="getRawMap()">Export</button>
 	</div>
-	<script type="text/javascript" src="src/game.js"></script>
+	<script type="text/javascript" src="src/block.js"></script>
+	<script type="text/javascript" src="src/levels.js"></script>
+	<script type="text/javascript" src="src/editor.js"></script>
+	<!--script type="text/javascript" src="src/game.js"></script-->
 </body>
 </html>
 

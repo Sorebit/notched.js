@@ -25,13 +25,13 @@ var mapCanvas = document.getElementById("game");
 var map2d = mapCanvas.getContext("2d");
 
 mapCanvas.addEventListener("mousedown", clickHandler, false);
-mapCanvas.addEventListener("mouseup", clickUpHandler, false);
+document.addEventListener("mouseup", clickUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
 document.addEventListener("keydown", keyDownHandler, false);
 var mouseDown = false;
 
-var ROWS = 18;
-var COLS = 18;
+var ROWS = 24;
+var COLS = 24;
 var lastX = null, lastY = null;
 var offsetX = 0, offsetY = 0;
 var maxOffsetX = Math.max(0, (COLS*16)-mapCanvas.width), maxOffsetY = Math.max(0, (ROWS*16)-mapCanvas.height);

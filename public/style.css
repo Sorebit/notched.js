@@ -1,6 +1,7 @@
 * {
 	margin: 0;
 	padding: 0;
+	cursor: none;
 }
 
 body {
@@ -16,15 +17,18 @@ canvas {
   -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
 }
 
-#game {
-	background: #252825;
-	border: 4px solid #252825;
+#game, #gui {
 	display: block;
 	margin: 0 auto;
 	height: 1024px;
 	width: 1536px;
-	position: relative;
+	position: absolute;
 }
+
+#game {
+	background: #000000;
+}
+
 
 #sidebar {
 	position: fixed;

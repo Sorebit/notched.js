@@ -58,14 +58,9 @@ for(var y = 0; y < ROWS; ++y)
 		var id, type;
 		if(x == 0 || y == 0 || x == COLS-1 || y == ROWS-1)
 			id = 0;
-		else if(rand(0, 100) < 35)
-		{
-			id = [0, 1, 5][rand(0, 2)];
-		}
 		else
-		{
-			id = 2;
-		}
+			id = 3;
+
 		map[y][x] = new Block(id);
 		map[y][x].x = x;
 		map[y][x].y = y;
@@ -79,7 +74,7 @@ function Cursor(x, y)
 	this.selectedBlock = 0;
 }
 Cursor.prototype = {
-	draw: function() { map2d.drawImage(tileset, 12*8, 0, 16, 16, this.x*16-offsetX, this.y*16-offsetY, 16, 16); }
+	draw: function() { map2d.drawImage(tileset, 112, 104, 16, 16, this.x*16-offsetX, this.y*16-offsetY, 16, 16); }
 };
 
 var cursor = new Cursor(0, 0);
@@ -94,9 +89,9 @@ function drawGUI()
 	for(var block = 0; block < 10; ++block)
 	{
 		tile = getBlockById(block);
-		tx = tile[0];
-		ty = tile[1];
-		connects = tile[2];
+		tx = tile.x;
+		ty = tile.y;
+		connects = tile.connects;
 		// single
 		if(connects == 0)
 		{
@@ -138,7 +133,7 @@ function minimap()
 	{
 		for(var x = 0; x < COLS; ++x)
 		{
-			var block = getBlockById(map[y][x].id);
+			//var block = getBlockById(map[y][x].id);
 			map2d.drawImage(tileset, map[y][x].tilesetX+4, map[y][x].tilesetY+4, 2, 2, mx+x*2+1, my+y*2+1, 2, 2);
 		}
 	}

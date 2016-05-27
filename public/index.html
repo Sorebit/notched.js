@@ -7,26 +7,10 @@
 </head>
 <body>
 	<canvas id="game" height="256" width="384" oncontextmenu="return false;"></canvas>
-	<div id="sidebar">
-		<h2>How to use the editor</h2>
-		<ul>
-			<li>Left click: Place block</li>
-			<li>Right click: Move cursor</li>
-			<li>Middle click: Fill with selected block type</li>
-			<li>Shift + left click: Rectangle from last cursor position</li>
-			<li>Ctrl + left clock: Copy block type under cursor</li>
-			<li>Left click (on block list): Select block type</li>
-			<li>[M]: Toggle minimap</li>
-		</ul>
-
-		<h2>Export to JS array</h2>
-		<p id="data"></p>
-		<button type="button" onclick="getRawMap()">Export</button>
-	</div>
+	<canvas id="gui" height="256" width="384" oncontextmenu="return false;"></canvas>
 	<script type="text/javascript" src="src/block.js"></script>
 	<script type="text/javascript" src="src/levels.js"></script>
-	<script type="text/javascript" src="src/editor.js"></script>
-	<!--script type="text/javascript" src="src/game.js"></script-->
+	<script type="text/javascript" src="src/game.js"></script>
 </body>
 </html>
 

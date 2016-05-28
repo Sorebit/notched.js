@@ -12,8 +12,16 @@ window.map2d = mapCanvas.getContext("2d");
 window.guiCanvas = document.getElementById("gui");
 window.gui2d = guiCanvas.getContext("2d");
 
-
-var showMinimap = false;
+function popElement(arr, index) {
+	if(index < 0 || index >= arr.length)
+		return;
+	var temp = arr.slice(index + 1, arr.length);
+	arr = arr.slice(0, index);
+	for(var i = 0; i < temp.length; ++i){
+		arr.push(temp[i]);
+	}
+	return arr;
+}
 
 // Game class
 function Game(){
@@ -40,13 +48,13 @@ function Game(){
 			this.map[y][x].x = x;
 			this.map[y][x].y = y;
 			this.objects[y][x] = new Entity(0, 'object');
-//			console.log('New xy: ' + x + ', ' + y);
 			this.objects[y][x].x = x;
 			this.objects[y][x].y = y;
 		}
 	}
 
 	this.damage_counters = [];
+	this.bullets = [];
 };
 
 Entity.prototype = {
@@ -181,35 +189,37 @@ Entity.prototype = {
 
 
 Game.prototype.drawMap = function() {
+	// Clear canvas
 	map2d.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
-	var minX = Math.floor(game.offsetX/16);
-	var minY = Math.floor(game.offsetY/16);
-	var maxX = minX+Math.floor(mapCanvas.width/16)+1;
-	var maxY = minY+Math.floor(mapCanvas.height/16)+1;
+	// Draw only visible tiles
+	var minX = Math.floor(this.offsetX/16);
+	var minY = Math.floor(this.offsetY/16);
+	var maxX = minX + Math.floor(mapCanvas.width/16)+1;
+	var maxY = minY + Math.floor(mapCanvas.height/16)+1;
 	for(var y = minY; y < maxY; ++y) {
 		if(y < 0)
 			continue;
 		for(var x = minX; x < maxX; ++x) {
 			if(x < 0)
 				continue;
-			if(x < game.cols && y < game.rows) {
-				game.map[y][x].draw(game.map);
-				game.objects[y][x].draw(game.objects);
+			if(x < this.cols && y < this.rows) {
+				this.map[y][x].draw(this.map);
+				this.objects[y][x].draw(this.objects);
 			}
 		}
 	}
 }
 
 Game.prototype.loadLevel = function(level) {
-	game.offsetX = 0, game.offsetY = 0;
-	game.cols = level.cols;
-	game.rows = level.rows;
-	game.maxOffsetX = Math.max(0, (game.cols*16)-mapCanvas.width);
-	game.maxOffsetY = Math.max(28, (game.rows*16)-mapCanvas.height+28);
-	for(var y = 0; y < game.rows; ++y) {
+	this.offsetX = 0, this.offsetY = 0;
+	this.cols = level.cols;
+	this.rows = level.rows;
+	this.maxOffsetX = Math.max(0, (this.cols*16)-mapCanvas.width);
+	this.maxOffsetY = Math.max(28, (this.rows*16)-mapCanvas.height+28);
+	for(var y = 0; y < this.rows; ++y) {
 		this.map[y] = [];
 		this.objects[y] = [];
-		for(var x = 0; x < game.cols; ++x) {
+		for(var x = 0; x < this.cols; ++x) {
 			var id, type;
 			this.map[y][x] = new Entity(level.map[y][x], 'block');
 			this.map[y][x].x = x;
@@ -219,8 +229,8 @@ Game.prototype.loadLevel = function(level) {
 			this.objects[y][x].y = y;
 		}
 	}
-	player.y = game.rows / 2 * 16;
-	player.x = game.cols / 2 * 16;
+	player.y = this.rows / 2 * 16;
+	player.x = this.cols / 2 * 16;
 };
 
 Game.prototype.drawText = function(text, x, y, red){
@@ -254,7 +264,7 @@ Game.prototype.add_damage_counter = function(amount, x, y){
 
 Game.prototype.draw_damage_counters = function(){
 	for(var c in this.damage_counters){
-		game.drawText('c.amount', c.x, c.y);
+		this.drawText('c.amount', c.x, c.y);
 	}
 }
 
@@ -262,9 +272,38 @@ Game.prototype.drawCursor = function() {
 	gui2d.drawImage(guiImage, 240, 240, 16, 16, this.cursorX, this.cursorY, 16, 16);
 }
 
+Game.prototype.updateBullets = function() {
+	for(var i = 0; i < this.bullets.length; ++i) {
+		var b = this.bullets[i];
+		var paw = player.activeWeapon;
+		// since high speed can overpass it easily it's kind of more random
+		// kind of
+		// so I might leave it, saying higher speed is higher inaccurracy
+		if(b.distanceX*b.distanceX + b.distanceY*b.distanceY > paw.range*paw.range)
+		{
+			this.bullets = popElement(this.bullets, i);
+			continue;
+		}
+		var dx = b.dx / (Math.abs(b.dx) + Math.abs(b.dy)) * b.speed;
+		var dy = b.dy / (Math.abs(b.dx) + Math.abs(b.dy)) * b.speed;
+		this.bullets[i].x += dx;
+		this.bullets[i].y += dy;
+		this.bullets[i].distanceX += dx;
+		this.bullets[i].distanceY += dy;
+	}
+}
+
+Game.prototype.drawBullets = function() {
+	for(var b = 0; b < this.bullets.length; ++b) {
+		map2d.beginPath(); 
+		map2d.rect(Math.floor(this.bullets[b].x - this.offsetX - 2), Math.round(this.bullets[b].y - this.offsetY - 2), 3, 3);
+		map2d.fillStyle = "#ff00ff";
+		map2d.fill();
+		map2d.closePath();
+	}
+}
+
 function Player() {
-	// this.x = game.cols/2 * 16;
-	// this.y = game.rows/2 * 16;
 	this.x = 100;
 	this.y = 100;
 	this.dx = 3;
@@ -273,6 +312,8 @@ function Player() {
 	this.moving_east = false;
 	this.moving_south = false;
 	this.moving_west = false;
+	this.activeWeapon = new Weapon(null);
+	this.shooting = false;
 }
 
 Player.prototype.collides = function(x, y) {
@@ -280,10 +321,10 @@ Player.prototype.collides = function(x, y) {
 	return false;
 };
 
-var test = 0;
 
 Player.prototype.draw = function() {
-	map2d.drawImage(charset, test, 0, 16, 16, this.x - 8 - game.offsetX, this.y - 8 - game.offsetY, 16, 16);
+	var tx = 0, ty = 0;
+	map2d.drawImage(charset, tx, ty, 16, 16, this.x - 8 - game.offsetX, this.y - 8 - game.offsetY, 16, 16);
 };
 
 Player.prototype.map_borders = function() {
@@ -345,34 +386,34 @@ Player.prototype.update = function() {
 	// north
 	if(this.moving_north && !this.moving_south) {
 		this.y = Math.max(this.y - this.dy, 8);
-		// if(this.y - game.offsetY < 3*16 && game.offsetY > 0){
-			game.offsetY -= this.dy;
-		// }
+		game.offsetY -= this.dy;
 	}
 	// south
 	if(this.moving_south && !this.moving_north) {
 		this.y = Math.min(this.y + this.dy, game.rows*16 - 8);
-		// if(this.y - game.offsetY > mapCanvas.height - 3*16 && game.offsetY < game.maxOffsetY){
-			game.offsetY += this.dy;
-		// }
+		game.offsetY += this.dy;
 	}
 	// east
 	if(this.moving_east && !this.moving_west) {
 		this.x = Math.min(this.x + this.dx, game.cols*16 - 8);
-		// if(this.x - game.offsetX > mapCanvas.width - 3*16 && game.offsetX < game.maxOffsetX){
-			game.offsetX += this.dx;
-		// }
+		game.offsetX += this.dx;
 	}
 	// west
 	if(this.moving_west && !this.moving_east) {
 		this.x = Math.max(this.x - this.dx, 8);
-		// if(this.x - game.offsetX < 3*16 && game.offsetX > 0){
-			game.offsetX -= this.dx;
-		// }
+		game.offsetX -= this.dx;
 	}
 	this.collision();
 	this.map_borders();
 };
+
+Player.prototype.shoot = function(dx, dy) {
+	// multishoot weapons should juat randomly differ multiple shots
+	var b = new Bullet(player.activeWeapon.bulletType, player.x, player.y, dx, dy);
+	game.bullets.push(b);
+	player.shooting = false;
+	// console.log('shoot: ' + dx + ', ' + dy);
+}
 
 // Keyboard and mouse
 
@@ -407,8 +448,8 @@ function keyUpHandler(e) {
 	}
 }
 
-// document.addEventListener("mousedown", clickHandler, false);
-// document.addEventListener("mouseup", clickUpHandler, false);
+document.addEventListener("mousedown", mouseDownHandler, false);
+document.addEventListener("mouseup", mouseUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
 
 function mouseMoveHandler(e) {
@@ -418,31 +459,60 @@ function mouseMoveHandler(e) {
 	game.redrawGui = true;
 }
 
-Game.prototype.update = function() {
+function mouseDownHandler(e) {
+	// Coordinates 
+	var bx = player.x - game.offsetX;
+	var by = player.y - game.offsetY;
+	var ex = Math.floor(e.clientX / 4);
+	var ey = Math.floor(e.clientY / 4);
+	var dx = ex - bx;
+	var dy = ey - by;
+
+	// Direction
+	if(Math.abs(dx) > Math.abs(dy))
+		player.shoot(Math.sign(dx), Math.sign(dy)*Math.abs(dy)/Math.abs(dx));
+	else
+		player.shoot(Math.sign(dx)*Math.abs(dx)/Math.abs(dy), Math.sign(dy));
+
+	// Debug click register
+	gui2d.beginPath();
+	gui2d.rect(ex - 2, ey - 2, 3, 3);
+	gui2d.fillStyle = "#00ff00";
+	gui2d.fill();
+}
+
+function mouseUpHandler(e) {
+	player.shooting = false;
+}
+
+
+Game.prototype.updateCamera = function() {
 	this.offsetX = player.x - Math.floor(mapCanvas.width / 2);
 	this.offsetY = player.y - Math.floor(mapCanvas.height / 2);
-	// if(this.cursorX < mapCanvas.width / 2)
-		// this.offsetX += Math.floor((this.cursorX - player.x) / 2) ;
-	// else
-		// this.offsetX -= Math.floor((this.cursorX - player.x) / 2) ;
+
+	// Make camera move a little bit to the cursor so it's less stiff
 	var cursorOffsetX = player.x - this.offsetX - this.cursorX;
 	var cursorOffsetY = player.y - this.offsetY - this.cursorY;
 	this.offsetX -= Math.floor(cursorOffsetX / 6);
 	this.offsetY -= Math.floor(cursorOffsetY / 6);
 }
 
+Game.prototype.update = function() {
+	this.updateCamera();
+	this.updateBullets();
+}
+
 // Main
 
 var game = new Game();
 var player = new Player();
+player.activeWeapon = new Weapon(0);
 game.loadLevel(double);
-
-var t = 0;
 
 function drawLoop() {
 
 	game.drawMap();
-
+	game.drawBullets();
 	player.draw();
 
 	if(game.redrawGui)

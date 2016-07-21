@@ -6,6 +6,10 @@ window.guiImage = document.createElement("img");
 guiImage.src = "assets/gui.png";
 guiImage.onload = function() { console.log("Loaded gui image.") };
 
+window.particlesImage = document.createElement("img");
+particlesImage.src = "assets/particles.png";
+particlesImage.onload = function() { console.log("Loaded particles image.") };
+
 window.mapCanvas = document.getElementById("game");
 window.map2d = mapCanvas.getContext("2d");
 
@@ -15,8 +19,81 @@ window.gui2d = guiCanvas.getContext("2d");
 var contextScale = 2;
 var debug = false;
 
+// Check for line intersection with a quad
+// x1, y1, x1, y2 - line segment
+// x3, y3, x4, y4 - upper left and lower right corners of box
+function lineIntersectBox(x1, y1, x2, y2, x3, y3, x4, y4) {
+	var top    = linesIntersect(x1, y1, x2, y2, x3, y3, x4, y3);
+	var right  = linesIntersect(x1, y1, x2, y2, x4, y3, x4, y4);
+	var bottom = linesIntersect(x1, y1, x2, y2, x3, y4, x4, y4);
+	var left   = linesIntersect(x1, y1, x2, y2, x3, y3, x3, y4);
+	var points = [];
+	if(top.onLine1 && top.onLine2){
+		if(debug) {
+			gui2d.beginPath();	
+			gui2d.moveTo(x3 - game.offsetX, y3 - game.offsetY);
+			gui2d.lineTo(x4 - game.offsetX, y3 - game.offsetY);
+			gui2d.strokeStyle = "#ff0000";
+			gui2d.stroke();
+		}
+		points.push({x: top.x, y: top.y});
+	}
+	if(right.onLine1 && right.onLine2){
+		if(debug) {
+			gui2d.beginPath();
+			gui2d.moveTo(x4 - game.offsetX, y3 - game.offsetY);
+			gui2d.lineTo(x4 - game.offsetX, y4 - game.offsetY);
+			gui2d.strokeStyle = "#00ff00";
+			gui2d.stroke();
+		}
+		points.push({x: right.x, y: right.y});
+	}
+	if(bottom.onLine1 && bottom.onLine2){
+		if(debug) {
+			gui2d.beginPath();
+			gui2d.moveTo(x3 - game.offsetX, y4 - game.offsetY);
+			gui2d.lineTo(x4 - game.offsetX, y4 - game.offsetY);
+			gui2d.strokeStyle = "#0000ff";
+			gui2d.stroke();
+		}
+		points.push({x: bottom.x, y: bottom.y});
+	}
+	if(left.onLine1 && left.onLine2){
+		if(debug) {			
+			gui2d.beginPath();
+			gui2d.moveTo(x3 - game.offsetX, y3 - game.offsetY);
+			gui2d.lineTo(x3 - game.offsetX, y4 - game.offsetY);
+			gui2d.strokeStyle = "#ffff00";
+			gui2d.stroke();
+		}
+		points.push({x: left.x, y: left.y});
+	}
+	var minDist = null;
+	var minX = null, minY = null;
+	for(var i = 0; i < points.length; ++i) {
+		// console.log(points[i]);
+		var dist = Math.abs(x1 - points.x) + Math.abs(y1 - points.y);
+		if(minDist > dist || minDist == null) {
+			minDist = dist;
+			minX = points[i].x;
+			minY = points[i].y;
+		}
+	}
+	if(minX != null && minY != null){
+		if(debug){		
+			gui2d.beginPath();
+			gui2d.rect(Math.round(minX - 2 - game.offsetX), Math.round(minY - 2 - game.offsetY), 3, 3);
+			gui2d.fillStyle = "#00ffff";
+			gui2d.fill();
+			gui2d.closePath();
+		}
+	}
+	return {x: minX, y: minY};
+}
+
+
 // Game class
-function Game(){
+function Game() {
 	this.rows = 16;
 	this.cols = 24;
 	this.map = [];
@@ -30,12 +107,10 @@ function Game(){
 	this.cursorY = mapCanvas.height / 2 - 8;
 	this.redrawGui = false;
 
-	for(var y = 0; y < this.rows; ++y)
-	{
+	for(var y = 0; y < this.rows; ++y) {
 		this.map[y] = [];
 		this.objects[y] = [];
-		for(var x = 0; x < this.cols; ++x)
-		{
+		for(var x = 0; x < this.cols; ++x) {
 			this.map[y][x] = new Entity(0, 'block');
 			this.map[y][x].x = x;
 			this.map[y][x].y = y;
@@ -45,16 +120,18 @@ function Game(){
 		}
 	}
 
-	this.damage_counters = [];
+	this.bulletPoolSize = 1200;
+	this.bulletCount = 0;
 	this.bullets = [];
+	for(var i = 0; i < this.bulletPoolSize; ++i) {
+		this.bullets[i] = new Bullet();
+	}
 
-	this.friction = 0.4;
 };
 
 Entity.prototype = {
 	// Graphics
-	draw: function(arr)
-	{
+	draw: function(arr) {
 		var x = this.x;
 		var y = this.y;
 		var ty = this.tilesetY;
@@ -64,57 +141,58 @@ Entity.prototype = {
 		var roundOffsetY = Math.round(game.offsetY);
 		
 		// Don't draw empty blocks or ebjects
-		if(id == 0)
+		if(id == 0) {
 			return;
+		}
 
 		// single
-		if(this.connects == 0){
+		if(this.connects == 0) {
 			map2d.drawImage(tileset, tx, ty, 16, 16, x*16-roundOffsetX, y*16-roundOffsetY, 16, 16);
 		}
 		// multi
-		else if(this.connects == 1 || this.connects == 4){
+		else if(this.connects == 1 || this.connects == 4) {
 			var x1 = tx,    y1 = ty;
 			var x2 = tx+16, y2 = ty;
 			var x3 = tx,    y3 = ty+16;
 			var x4 = tx+16, y4 = ty+16;
 
 			// one up
-			if(y > 0 && arr[y-1][x].id == id){
+			if(y > 0 && arr[y-1][x].id == id) {
 				y1 += 8;
 				y2 += 8;
 			}
 			// one down
-			if(y < game.rows-1 && arr[y+1][x].id == id){
+			if(y < game.rows-1 && arr[y+1][x].id == id) {
 				y3 -= 8;1
 				y4 -= 8;
 			}
 			// one left
-			if(x > 0 && arr[y][x-1].id == id){
+			if(x > 0 && arr[y][x-1].id == id) {
 				x1 += 8;
 				x3 += 8;
 			}
 			//one right
-			if(x < game.cols-1 && arr[y][x+1].id == id){
+			if(x < game.cols-1 && arr[y][x+1].id == id) {
 				x2 -= 8;
 				x4 -= 8;
 			}
 			// upper left
-			if(y > 0 && x > 0 && arr[y-1][x].id == id && arr[y][x-1].id == id && arr[y-1][x-1].id != id){
+			if(y > 0 && x > 0 && arr[y-1][x].id == id && arr[y][x-1].id == id && arr[y-1][x-1].id != id) {
 				x1 = 8*4;	
 				y1 = ty+8;
 			}
 			// upper right
-			if(y > 0 && x < game.cols-1 && arr[y-1][x].id == id && arr[y][x+1].id == id && arr[y-1][x+1].id != id){
+			if(y > 0 && x < game.cols-1 && arr[y-1][x].id == id && arr[y][x+1].id == id && arr[y-1][x+1].id != id) {
 				x2 = 8*3;
 				y2 = ty+8;
 			}
 			// lower left
-			if(y < game.rows-1 && x > 0 && x < game.cols-1 && arr[y+1][x].id == id && arr[y][x-1].id == id && arr[y+1][x-1].id != id){
+			if(y < game.rows-1 && x > 0 && x < game.cols-1 && arr[y+1][x].id == id && arr[y][x-1].id == id && arr[y+1][x-1].id != id) {
 				x3 = 8*4;
 				y3 = ty;
 			}
 			// upper right
-			if(y < game.rows-1 && x < game.cols-1 && arr[y+1][x].id == id && arr[y][x+1].id == id && arr[y+1][x+1].id != id){
+			if(y < game.rows-1 && x < game.cols-1 && arr[y+1][x].id == id && arr[y][x+1].id == id && arr[y+1][x+1].id != id) {
 				x4 = 8*3;
 				y4 = ty;
 			}
@@ -128,19 +206,19 @@ Entity.prototype = {
 			if(arr[y][x].connects != 4)
 				return;
 			var wireCount = 0;
-			for(var sy = -1; sy <= 0; ++sy){
-				for(var sx = -1; sx <= 0; ++sx){
+			for(var sy = -1; sy <= 0; ++sy) {
+				for(var sx = -1; sx <= 0; ++sx) {
 					neigh = 0;
-					for(var cy = 0; cy <= 1; ++cy){
-						for(var cx = 0; cx <= 1; ++cx){
-							if(y+sy+cy >= 0 && y+sy+cy < game.rows && x+sx+cx >= 0 && x+sx+cx < game.cols){
-								if(arr[y+sy+cy][x+sx+cx].id == arr[y][x].id){
+					for(var cy = 0; cy <= 1; ++cy) {
+						for(var cx = 0; cx <= 1; ++cx) {
+							if(y+sy+cy >= 0 && y+sy+cy < game.rows && x+sx+cx >= 0 && x+sx+cx < game.cols) {
+								if(arr[y+sy+cy][x+sx+cx].id == arr[y][x].id) {
 									++neigh;
 								}
 							}
 						}
 					}
-					if(neigh == 4){
+					if(neigh == 4) {
 						map2d.drawImage(tileset, tx+8*3, ty, 16, 16, (x+sx)*16+8-roundOffsetX, (y+sy)*16+8-roundOffsetY, 16, 16);
 					}
 				}
@@ -148,11 +226,11 @@ Entity.prototype = {
 		} else if(this.connects == 2) {
 			var x1 = tx, x2 = tx+8*3;
 			// left
-			if(x > 0 && arr[y][x-1].id == id){
+			if(x > 0 && arr[y][x-1].id == id) {
 				x1 += 8*2;
 			}
 			// right
-			if(x < game.cols-1 && arr[y][x+1].id == id){
+			if(x < game.cols-1 && arr[y][x+1].id == id) {
 				x2 -= 8*2;
 			}
 			map2d.drawImage(tileset, x1, ty, 8, 16, x*16-roundOffsetX,   y*16-roundOffsetY, 8, 16);
@@ -161,11 +239,11 @@ Entity.prototype = {
 		} else if(this.connects == 3) {
 			var y1 = ty, y2 = ty+8*3;
 			top
-			if(y > 0 && arr[y-1][x].id == id){
+			if(y > 0 && arr[y-1][x].id == id) {
 				y1 += 8*2;
 			}
 			// bottom
-			if(y < game.rows-1 && arr[y+1][x].id == id){
+			if(y < game.rows-1 && arr[y+1][x].id == id) {
 				y2 -= 8*2;
 			}
 			map2d.drawImage(tileset, tx, y1, 16, 8, x*16-roundOffsetX,   y*16-roundOffsetY, 16, 8);
@@ -174,7 +252,7 @@ Entity.prototype = {
 		
 	},
 	// Should be deleted f
-	changeType: function(newID){
+	changeType: function(newID) {
 		this.id = newID;
 		var tile = getBlockById(newID);
 		this.tilesetX = tile.x;
@@ -230,11 +308,11 @@ Game.prototype.loadLevel = function(level) {
 	player.x = this.cols / 2 * 16;
 };
 
-Game.prototype.drawText = function(text, x, y, red){
+Game.prototype.drawText = function(text, x, y, red) {
 	text = text.toString();
 	var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,"\'?!@_*#$%&()+-/:;<=>[]{|}~^`';
 	var tx, ty, index;
-	for(var i = 0; i < text.length; ++i){
+	for(var i = 0; i < text.length; ++i) {
 		var index = chars.indexOf(text[i]);
 		tx = index % 26 * 6;
 		ty = 46 + Math.floor(index / 26) * 8 + 8*4*red;
@@ -257,7 +335,7 @@ Game.prototype.drawCursor = function() {
 
 Game.prototype.updateBullets = function(dt) {
 	// console.log(dt);
-	for(var i = 0; i < this.bullets.length; ++i) {
+	for(var i = 0; i < this.bulletCount; ++i) {
 		var b = this.bullets[i];
 		var paw = player.activeWeapon;
 		
@@ -265,7 +343,6 @@ Game.prototype.updateBullets = function(dt) {
 		// kind of
 		// so I might leave it, saying higher speed is higher inaccurracy
 		if(b.distanceX*b.distanceX + b.distanceY*b.distanceY > paw.range*paw.range) {
-			console.log(b.distanceX + ', ' + b.distanceY + ' > ' + paw.range);
 			this.bullets[i].shouldRemove = true;
 		}
 		// Delta x, y
@@ -301,7 +378,7 @@ Game.prototype.updateBullets = function(dt) {
 		for(var iy = min_y; iy <= max_y; ++iy) {
 			for(var jx = min_x; jx <= max_x; ++jx) {
 				// Don't check out of bounds
-				if(iy < 0 || iy >= this.rows || jx < 0 || jx >= this.cols){
+				if(iy < 0 || iy >= this.rows || jx < 0 || jx >= this.cols) {
 					continue;
 				}
 				// Don't check blocks bullets can pass through
@@ -311,8 +388,11 @@ Game.prototype.updateBullets = function(dt) {
 				// Check for intersection with each side
 				// stop at closest one
 				// later i'll use it for particles
-				var interPoint = lineIntersectBox(b.x, b.y, nx, ny, jx * 16, iy * 16, jx * 16 + 16, iy * 16 + 16);
-				// console.log(interPoint);
+				var interPoint = lineIntersectBox(b.x, b.y, nx, ny, 
+												  jx*16, iy*16, jx*16 + 16, iy*16 + 16);
+				if(debug){
+					console.log(interPoint);
+				}
 				if(interPoint.x != null && interPoint.y != null) {
 					this.bullets[i].shouldRemove = true;
 					break;
@@ -327,8 +407,9 @@ Game.prototype.updateBullets = function(dt) {
 
 		// If should remove, remove it
 		if(this.bullets[i].shouldRemove == true) {
-			this.bullets = popElement(this.bullets, i);
-			i--;
+			this.bullets[i].alive = false;
+			this.bullets[i] = this.bullets[this.bulletCount - 1];
+			this.bulletCount--;
 			continue;
 		}
 
@@ -343,12 +424,12 @@ Game.prototype.updateBullets = function(dt) {
 }
 
 Game.prototype.drawBullets = function() {
-	for(var b = 0; b < this.bullets.length; ++b) {
-		map2d.beginPath(); 
-		map2d.rect(Math.floor(this.bullets[b].x - this.offsetX - 2), Math.round(this.bullets[b].y - this.offsetY - 2), 3, 3);
-		map2d.fillStyle = "#ff00ff";
-		map2d.fill();
-		map2d.closePath();
+	var ix = 2;
+	var iy = 2;
+	for(var b = 0; b < this.bulletCount; ++b) {
+		var x = Math.round(this.bullets[b].x - this.offsetX - 2);
+		var y = Math.round(this.bullets[b].y - this.offsetY - 2);
+		map2d.drawImage(particlesImage, ix, iy, 3, 3, x, y, 3, 3);
 	}
 }
 
@@ -356,8 +437,8 @@ function Player() {
 	this.x = 100;
 	this.y = 100;
 	this.speed = 200;
-	this.accel = 50;
-	this.dir = { x: 0, y: 0, }
+	// this.accel = 50;
+	this.dir = { x: 0, y: 0, };
 	this.moving_north = false;
 	this.moving_east = false;
 	this.moving_south = false;
@@ -372,15 +453,8 @@ Player.prototype.draw = function() {
 	map2d.drawImage(charset, tx, ty, 16, 16, this.x - 8 - game.offsetX, this.y - 8 - game.offsetY, 16, 16);
 };
 
-Player.prototype.map_borders = function() {
-	this.x = Math.max(this.x, 8);
-	this.x = Math.min(this.x, game.cols*16 - 8);
-	this.y = Math.max(this.y, 8);
-	this.y = Math.min(this.y, game.rows*16 - 8);
-}
-
 Player.prototype.collision = function() {
-	for(var oy = -1; oy <= 1; ++oy){
+	for(var oy = -1; oy <= 1; ++oy) {
 		for(var ox = -1; ox <= 1; ++ox) {
 			// Check for intersection with surrounding blocks
 			var tx = Math.floor(this.x / 16) + ox;
@@ -388,20 +462,20 @@ Player.prototype.collision = function() {
 
 			var isObstacle = false;
 			
-			if(ty < 0 || ty > game.rows - 1|| tx < 0 || tx > game.cols - 1){
+			if(ty < 0 || ty > game.rows - 1|| tx < 0 || tx > game.cols - 1) {
 				isObstacle = true;
 			}
-			else if(game.map[ty][tx].obstacle || game.objects[ty][tx].obstacle){
+			else if(game.map[ty][tx].obstacle || game.objects[ty][tx].obstacle) {
 				isObstacle = true;
 			}
 			
-			if(isObstacle){
+			if(isObstacle) {
 				var dis_x = tx*16 + 8 - this.x;
 				var dis_y = ty*16 + 8 - this.y;
 
-				if(Math.abs(dis_x) < 16 && Math.abs(dis_y) < 16){
+				if(Math.abs(dis_x) < 16 && Math.abs(dis_y) < 16) {
 
-					if( (this.moving_east || this.moving_west) && (this.moving_north || this.moving_south) ){
+					if( (this.moving_east || this.moving_west) && (this.moving_north || this.moving_south) ) {
 						// If intersects, push away from block
 						if(Math.abs(dis_y) < 16 - this.dy)
 							this.x += dis_x - Math.sign(dis_x)*16;
@@ -448,14 +522,16 @@ Player.prototype.update = function(dt) {
 	this.y = clamp(this.y, 8, game.rows*16 - 8);
 
 	this.collision();
-	this.map_borders();
 };
 
 Player.prototype.shoot = function(v) {
 	// multishoot weapons should just randomly differ multiple shots
-	var b = new Bullet(player.activeWeapon.bulletType, player.x, player.y, v.x, v.y);
-
-	game.bullets.push(b);
+	for(var i = 0; i < player.activeWeapon.bulletCount; ++i) {
+		rv = randomVector(Math.atan2(v.x, v.y) - Math.PI/2, player.activeWeapon.angleVar);
+		if(game.bulletCount < game.bulletPoolSize) {
+			game.bullets[game.bulletCount++] = new Bullet(player.activeWeapon.bulletType, player.x, player.y, rv.x, rv.y);
+		}
+	}
 	player.shooting = false;
 }
 
@@ -549,7 +625,7 @@ Game.prototype.update = function(dt) {
 
 var game = new Game();
 var player = new Player();
-player.activeWeapon = new Weapon(0);
+player.activeWeapon = new Weapon(1);
 game.loadLevel(double);
 
 // Main

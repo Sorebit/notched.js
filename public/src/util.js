@@ -12,6 +12,35 @@ function popElement(arr, index) {
 	return arr;
 }
 
+function isNumber(i) {
+	return typeof i === 'number';
+}
+
+function isInteger(num) {
+	return num === (num | 0);
+}
+
+function random(minOrMax, maxOrUndefined, dontFloor) {
+	dontFloor = dontFloor || false;
+
+	var min = this.isNumber(maxOrUndefined) ? minOrMax: 0;
+	var max = this.isNumber(maxOrUndefined) ? maxOrUndefined: minOrMax;
+
+	var range = max - min;
+
+	var result = Math.random() * range + min;
+
+	if (this.isInteger(min) && this.isInteger(max) && ! dontFloor) {
+		return Math.floor(result);
+	} else {
+		return result;
+	}
+}
+
+function random11() {
+	return this.random(-1, 1, true);
+}
+
 // Check for line intersection
 function linesIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
 	// if the lines intersect, the result contains the x and y 
@@ -56,77 +85,6 @@ function linesIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
 	return result;
 };
 
-// Check for line intersection with a quad
-// x1, y1, x1, y2 - line segment
-// x3, y3, x4, y4 - upper left and lower right corners of box
-function lineIntersectBox(x1, y1, x2, y2, x3, y3, x4, y4) {
-	var top    = linesIntersect(x1, y1, x2, y2, x3, y3, x4, y3);
-	var right  = linesIntersect(x1, y1, x2, y2, x4, y3, x4, y4);
-	var bottom = linesIntersect(x1, y1, x2, y2, x3, y4, x4, y4);
-	var left   = linesIntersect(x1, y1, x2, y2, x3, y3, x3, y4);
-	var points = [];
-	if(top.onLine1 && top.onLine2){
-		if(debug) {
-			gui2d.beginPath();	
-			gui2d.moveTo(x3 - game.offsetX, y3 - game.offsetY);
-			gui2d.lineTo(x4 - game.offsetX, y3 - game.offsetY);
-			gui2d.strokeStyle = "#ff0000";
-			gui2d.stroke();
-		}
-		points.push({x: top.x, y: top.y});
-	}
-	if(right.onLine1 && right.onLine2){
-		if(debug) {
-			gui2d.beginPath();
-			gui2d.moveTo(x4 - game.offsetX, y3 - game.offsetY);
-			gui2d.lineTo(x4 - game.offsetX, y4 - game.offsetY);
-			gui2d.strokeStyle = "#00ff00";
-			gui2d.stroke();
-		}
-		points.push({x: right.x, y: right.y});
-	}
-	if(bottom.onLine1 && bottom.onLine2){
-		if(debug) {
-			gui2d.beginPath();
-			gui2d.moveTo(x3 - game.offsetX, y4 - game.offsetY);
-			gui2d.lineTo(x4 - game.offsetX, y4 - game.offsetY);
-			gui2d.strokeStyle = "#0000ff";
-			gui2d.stroke();
-		}
-		points.push({x: bottom.x, y: bottom.y});
-	}
-	if(left.onLine1 && left.onLine2){
-		if(debug) {			
-			gui2d.beginPath();
-			gui2d.moveTo(x3 - game.offsetX, y3 - game.offsetY);
-			gui2d.lineTo(x3 - game.offsetX, y4 - game.offsetY);
-			gui2d.strokeStyle = "#ffff00";
-			gui2d.stroke();
-		}
-		points.push({x: left.x, y: left.y});
-	}
-	var minDist = null;
-	var minX = null, minY = null;
-	for(var i = 0; i < points.length; ++i) {
-		// console.log(points[i]);
-		var dist = Math.abs(x1 - points.x) + Math.abs(y1 - points.y);
-		if(minDist > dist || minDist == null) {
-			minDist = dist;
-			minX = points[i].x;
-			minY = points[i].y;
-		}
-	}
-	if(minX != null && minY != null){
-		if(debug){		
-			gui2d.beginPath();
-			gui2d.rect(Math.round(minX - 2 - game.offsetX), Math.round(minY - 2 - game.offsetY), 3, 3);
-			gui2d.fillStyle = "#00ffff";
-			gui2d.fill();
-			gui2d.closePath();
-		}
-	}
-	return {x: minX, y: minY};
-}
 
 // Normalize vector for it's length to be [0, 1]
 function normalize(vector) {
@@ -135,11 +93,16 @@ function normalize(vector) {
 		return;
 	vector.x /= length;
 	vector.y /= length;
+	return vector;
 }
 
 // Convert angle in degrees to radians
 function toRad(angle) {
-	return (angle*Math.PI) / 180;
+	return angle * Math.PI / 180;
+}
+
+function toDegrees(angle) {
+	return angle * 180 / Math.PI;
 }
 
 // Clamp value beetween min and max
@@ -153,4 +116,18 @@ function addVectors(v1, v2) {
 
 function subtractVectors(v1, v2) {
 	return {x: v1.x - v2.x, y: v1.y - v2.y};
+}
+
+// Convert a radian angle to normalised vector
+function radToVector(angle) {
+	var vec = {
+		x: Math.cos(angle),
+		y: -Math.sin(angle),
+	};
+	return normalize(vec);
+}
+
+function randomVector(angle, angVar) {
+	angle += random11() * toRad(angVar);
+	return radToVector(angle);
 }

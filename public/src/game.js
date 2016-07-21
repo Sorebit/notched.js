@@ -12,16 +12,8 @@ window.map2d = mapCanvas.getContext("2d");
 window.guiCanvas = document.getElementById("gui");
 window.gui2d = guiCanvas.getContext("2d");
 
-function popElement(arr, index) {
-	if(index < 0 || index >= arr.length)
-		return;
-	var temp = arr.slice(index + 1, arr.length);
-	arr = arr.slice(0, index);
-	for(var i = 0; i < temp.length; ++i){
-		arr.push(temp[i]);
-	}
-	return arr;
-}
+var contextScale = 2;
+var debug = false;
 
 // Game class
 function Game(){
@@ -55,6 +47,8 @@ function Game(){
 
 	this.damage_counters = [];
 	this.bullets = [];
+
+	this.friction = 0.4;
 };
 
 Entity.prototype = {
@@ -66,6 +60,8 @@ Entity.prototype = {
 		var ty = this.tilesetY;
 		var tx = this.tilesetX;
 		var id = this.id;
+		var roundOffsetX = Math.round(game.offsetX);
+		var roundOffsetY = Math.round(game.offsetY);
 		
 		// Don't draw empty blocks or ebjects
 		if(id == 0)
@@ -73,7 +69,7 @@ Entity.prototype = {
 
 		// single
 		if(this.connects == 0){
-			map2d.drawImage(tileset, tx, ty, 16, 16, x*16-game.offsetX, y*16-game.offsetY, 16, 16);
+			map2d.drawImage(tileset, tx, ty, 16, 16, x*16-roundOffsetX, y*16-roundOffsetY, 16, 16);
 		}
 		// multi
 		else if(this.connects == 1 || this.connects == 4){
@@ -122,10 +118,11 @@ Entity.prototype = {
 				x4 = 8*3;
 				y4 = ty;
 			}
-			map2d.drawImage(tileset, x1, y1, 8, 8, x*16-game.offsetX,   y*16-game.offsetY,   8, 8);
-			map2d.drawImage(tileset, x2, y2, 8, 8, x*16+8-game.offsetX, y*16-game.offsetY,   8, 8);-
-			map2d.drawImage(tileset, x3, y3, 8, 8, x*16-game.offsetX,   y*16+8-game.offsetY, 8, 8);
-			map2d.drawImage(tileset, x4, y4, 8, 8, x*16+8-game.offsetX, y*16+8-game.offsetY, 8, 8);
+
+			map2d.drawImage(tileset, x1, y1, 8, 8, x*16-roundOffsetX,   y*16-roundOffsetY,   8, 8);
+			map2d.drawImage(tileset, x2, y2, 8, 8, x*16+8-roundOffsetX, y*16-roundOffsetY,   8, 8);
+			map2d.drawImage(tileset, x3, y3, 8, 8, x*16-roundOffsetX,   y*16+8-roundOffsetY, 8, 8);
+			map2d.drawImage(tileset, x4, y4, 8, 8, x*16+8-roundOffsetX, y*16+8-roundOffsetY, 8, 8);
 
 			// Check only wire-like beyond this point
 			if(arr[y][x].connects != 4)
@@ -144,7 +141,7 @@ Entity.prototype = {
 						}
 					}
 					if(neigh == 4){
-						map2d.drawImage(tileset, tx+8*3, ty, 16, 16, (x+sx)*16+8-game.offsetX, (y+sy)*16+8-game.offsetY, 16, 16);
+						map2d.drawImage(tileset, tx+8*3, ty, 16, 16, (x+sx)*16+8-roundOffsetX, (y+sy)*16+8-roundOffsetY, 16, 16);
 					}
 				}
 			}
@@ -158,8 +155,8 @@ Entity.prototype = {
 			if(x < game.cols-1 && arr[y][x+1].id == id){
 				x2 -= 8*2;
 			}
-			map2d.drawImage(tileset, x1, ty, 8, 16, x*16-game.offsetX,   y*16-game.offsetY, 8, 16);
-			map2d.drawImage(tileset, x2, ty, 8, 16, x*16+8-game.offsetX, y*16-game.offsetY, 8, 16);
+			map2d.drawImage(tileset, x1, ty, 8, 16, x*16-roundOffsetX,   y*16-roundOffsetY, 8, 16);
+			map2d.drawImage(tileset, x2, ty, 8, 16, x*16+8-roundOffsetX, y*16-roundOffsetY, 8, 16);
 
 		} else if(this.connects == 3) {
 			var y1 = ty, y2 = ty+8*3;
@@ -171,8 +168,8 @@ Entity.prototype = {
 			if(y < game.rows-1 && arr[y+1][x].id == id){
 				y2 -= 8*2;
 			}
-			map2d.drawImage(tileset, tx, y1, 16, 8, x*16-game.offsetX,   y*16-game.offsetY, 16, 8);
-			map2d.drawImage(tileset, tx, y2, 16, 8, x*16-game.offsetX, y*16+8-game.offsetY, 16, 8);
+			map2d.drawImage(tileset, tx, y1, 16, 8, x*16-roundOffsetX,   y*16-roundOffsetY, 16, 8);
+			map2d.drawImage(tileset, tx, y2, 16, 8, x*16-roundOffsetX, y*16+8-roundOffsetY, 16, 8);
 		}
 		
 	},
@@ -234,6 +231,7 @@ Game.prototype.loadLevel = function(level) {
 };
 
 Game.prototype.drawText = function(text, x, y, red){
+	text = text.toString();
 	var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,"\'?!@_*#$%&()+-/:;<=>[]{|}~^`';
 	var tx, ty, index;
 	for(var i = 0; i < text.length; ++i){
@@ -253,43 +251,94 @@ Game.prototype.drawText = function(text, x, y, red){
 	}
 }
 
-// Experimental damage displaying
-Game.prototype.add_damage_counter = function(amount, x, y){
-	this.damage_counters.push({
-		amount: amount, 
-		x: x, 
-		y: y
-	});
-}
-
-Game.prototype.draw_damage_counters = function(){
-	for(var c in this.damage_counters){
-		this.drawText('c.amount', c.x, c.y);
-	}
-}
-
 Game.prototype.drawCursor = function() {
 	gui2d.drawImage(guiImage, 240, 240, 16, 16, this.cursorX, this.cursorY, 16, 16);
 }
 
-Game.prototype.updateBullets = function() {
+Game.prototype.updateBullets = function(dt) {
+	// console.log(dt);
 	for(var i = 0; i < this.bullets.length; ++i) {
 		var b = this.bullets[i];
 		var paw = player.activeWeapon;
+		
 		// since high speed can overpass it easily it's kind of more random
 		// kind of
 		// so I might leave it, saying higher speed is higher inaccurracy
-		if(b.distanceX*b.distanceX + b.distanceY*b.distanceY > paw.range*paw.range)
-		{
-			this.bullets = popElement(this.bullets, i);
+		if(b.distanceX*b.distanceX + b.distanceY*b.distanceY > paw.range*paw.range) {
+			console.log(b.distanceX + ', ' + b.distanceY + ' > ' + paw.range);
+			this.bullets[i].shouldRemove = true;
+		}
+		// Delta x, y
+		var d = {x: b.dx, y: b.dy};
+		normalize(d);
+		var dx = d.x * b.speed * dt;
+		var dy = d.y * b.speed * dt;
+		// Calculate new x, y
+		var nx = this.bullets[i].x + dx;
+		var ny = this.bullets[i].y + dy;
+		if(debug) {	
+			gui2d.beginPath();
+			gui2d.moveTo(this.bullets[i].x - this.offsetX, this.bullets[i].y - this.offsetY);
+			gui2d.lineTo(nx - this.offsetX, ny - this.offsetY);
+			gui2d.strokeStyle = "#ff0000";
+			// gui2d.stroke();
+			gui2d.closePath();
+		}
+
+		var tx = Math.floor(b.x / 16);
+		var ty = Math.floor(b.y / 16);
+		// Out of bounds
+		if(tx < 0 || tx >= this.cols || ty < 0 || ty >= this.rows) {
+			this.bullets[i].shouldRemove = true;
 			continue;
 		}
-		var dx = b.dx / (Math.abs(b.dx) + Math.abs(b.dy)) * b.speed;
-		var dy = b.dy / (Math.abs(b.dx) + Math.abs(b.dy)) * b.speed;
-		this.bullets[i].x += dx;
-		this.bullets[i].y += dy;
+
+		// Check for intersection
+		min_x = Math.floor(Math.min(b.x, nx) / 16); 
+		min_y = Math.floor(Math.min(b.y, ny) / 16);
+		max_x = Math.floor(Math.max(b.x, nx) / 16); 
+		max_y = Math.floor(Math.max(b.y, ny) / 16);
+		for(var iy = min_y; iy <= max_y; ++iy) {
+			for(var jx = min_x; jx <= max_x; ++jx) {
+				// Don't check out of bounds
+				if(iy < 0 || iy >= this.rows || jx < 0 || jx >= this.cols){
+					continue;
+				}
+				// Don't check blocks bullets can pass through
+				if(!this.map[iy][jx].bulletproof && !this.objects[iy][jx].bulletproof) {
+					continue;
+				}
+				// Check for intersection with each side
+				// stop at closest one
+				// later i'll use it for particles
+				var interPoint = lineIntersectBox(b.x, b.y, nx, ny, jx * 16, iy * 16, jx * 16 + 16, iy * 16 + 16);
+				// console.log(interPoint);
+				if(interPoint.x != null && interPoint.y != null) {
+					this.bullets[i].shouldRemove = true;
+					break;
+				}
+			}
+		}
+
+		// Inside of a block
+		if(this.map[ty][tx].obstacle || this.objects[ty][tx].obstacle) {
+			this.bullets[i].shouldRemove = true;
+		}
+
+		// If should remove, remove it
+		if(this.bullets[i].shouldRemove == true) {
+			this.bullets = popElement(this.bullets, i);
+			i--;
+			continue;
+		}
+
+		// Change x, y to new
+		this.bullets[i].x = nx;
+		this.bullets[i].y = ny;
+		// Add distance
 		this.bullets[i].distanceX += dx;
 		this.bullets[i].distanceY += dy;
+
 	}
 }
 
@@ -306,21 +355,17 @@ Game.prototype.drawBullets = function() {
 function Player() {
 	this.x = 100;
 	this.y = 100;
-	this.dx = 3;
-	this.dy = 3;
+	this.speed = 200;
+	this.accel = 50;
+	this.dir = { x: 0, y: 0, }
 	this.moving_north = false;
 	this.moving_east = false;
 	this.moving_south = false;
 	this.moving_west = false;
+	
 	this.activeWeapon = new Weapon(null);
 	this.shooting = false;
 }
-
-Player.prototype.collides = function(x, y) {
-	
-	return false;
-};
-
 
 Player.prototype.draw = function() {
 	var tx = 0, ty = 0;
@@ -357,15 +402,6 @@ Player.prototype.collision = function() {
 				if(Math.abs(dis_x) < 16 && Math.abs(dis_y) < 16){
 
 					if( (this.moving_east || this.moving_west) && (this.moving_north || this.moving_south) ){
-						// Corner bug fix
-						// if(Math.abs(dis_y) == 16 - this.dy && Math.abs(dis_x) == 16 - this.dx){
-						// 	console.log("dis_x: " + dis_x + ", dis_y: " + dis_y);
-
-						// 	this.x += dis_x - Math.sign(dis_x)*16;
-						// 	this.y += dis_y - Math.sign(dis_y)*16;
-						// 	continue;
-						// }
-
 						// If intersects, push away from block
 						if(Math.abs(dis_y) < 16 - this.dy)
 							this.x += dis_x - Math.sign(dis_x)*16;
@@ -382,37 +418,45 @@ Player.prototype.collision = function() {
 	}
 }
 
-Player.prototype.update = function() {
+Player.prototype.update = function(dt) {
+	this.dir = {x: 0, y: 0};
+
 	// north
-	if(this.moving_north && !this.moving_south) {
-		this.y = Math.max(this.y - this.dy, 8);
-		game.offsetY -= this.dy;
+	if(this.moving_north) {
+		this.dir = addVectors(this.dir, {x: 0, y: -1});
 	}
 	// south
-	if(this.moving_south && !this.moving_north) {
-		this.y = Math.min(this.y + this.dy, game.rows*16 - 8);
-		game.offsetY += this.dy;
+	if(this.moving_south) {
+		this.dir = addVectors(this.dir, {x: 0, y: 1});
 	}
 	// east
-	if(this.moving_east && !this.moving_west) {
-		this.x = Math.min(this.x + this.dx, game.cols*16 - 8);
-		game.offsetX += this.dx;
+	if(this.moving_east) {
+		this.dir = addVectors(this.dir, {x: 1, y: 0});
 	}
 	// west
-	if(this.moving_west && !this.moving_east) {
-		this.x = Math.max(this.x - this.dx, 8);
-		game.offsetX -= this.dx;
+	if(this.moving_west) {
+		this.dir = addVectors(this.dir, {x: -1, y: 0});
 	}
+
+	normalize(this.dir);
+
+	game.offsetX -= this.dir.x * this.speed * dt;
+	game.offsetY -= this.dir.y * this.speed * dt;
+	this.x += this.dir.x * this.speed * dt;
+	this.y += this.dir.y * this.speed * dt;
+	this.x = clamp(this.x, 8, game.cols*16 - 8);
+	this.y = clamp(this.y, 8, game.rows*16 - 8);
+
 	this.collision();
 	this.map_borders();
 };
 
-Player.prototype.shoot = function(dx, dy) {
-	// multishoot weapons should juat randomly differ multiple shots
-	var b = new Bullet(player.activeWeapon.bulletType, player.x, player.y, dx, dy);
+Player.prototype.shoot = function(v) {
+	// multishoot weapons should just randomly differ multiple shots
+	var b = new Bullet(player.activeWeapon.bulletType, player.x, player.y, v.x, v.y);
+
 	game.bullets.push(b);
 	player.shooting = false;
-	// console.log('shoot: ' + dx + ', ' + dy);
 }
 
 // Keyboard and mouse
@@ -453,7 +497,6 @@ document.addEventListener("mouseup", mouseUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
 
 function mouseMoveHandler(e) {
-	// console.log(e);
 	game.cursorX = Math.floor(e.clientX/4) - 8;
 	game.cursorY = Math.floor(e.clientY/4) - 8;
 	game.redrawGui = true;
@@ -468,17 +511,17 @@ function mouseDownHandler(e) {
 	var dx = ex - bx;
 	var dy = ey - by;
 
-	// Direction
-	if(Math.abs(dx) > Math.abs(dy))
-		player.shoot(Math.sign(dx), Math.sign(dy)*Math.abs(dy)/Math.abs(dx));
-	else
-		player.shoot(Math.sign(dx)*Math.abs(dx)/Math.abs(dy), Math.sign(dy));
+	var v = {x: dx, y: dy};
+	normalize(v);
+	player.shoot(v);
 
 	// Debug click register
-	gui2d.beginPath();
-	gui2d.rect(ex - 2, ey - 2, 3, 3);
-	gui2d.fillStyle = "#00ff00";
-	gui2d.fill();
+	if(debug) {		
+		gui2d.beginPath();
+		gui2d.rect(ex - 2, ey - 2, 3, 3);
+		gui2d.fillStyle = "#00ff00";
+		gui2d.fill();
+	}
 }
 
 function mouseUpHandler(e) {
@@ -497,9 +540,9 @@ Game.prototype.updateCamera = function() {
 	this.offsetY -= Math.floor(cursorOffsetY / 6);
 }
 
-Game.prototype.update = function() {
+Game.prototype.update = function(dt) {
 	this.updateCamera();
-	this.updateBullets();
+	this.updateBullets(dt);
 }
 
 // Main
@@ -509,12 +552,25 @@ var player = new Player();
 player.activeWeapon = new Weapon(0);
 game.loadLevel(double);
 
-function drawLoop() {
+// Main
+var lastUpdate = Date.now();
+var lastfps = 0;
+function tick() {
+	// Calculate time from last frame
+	var now = Date.now();
+	var delta = (now - lastUpdate) / 1000;
+	lastUpdate = now;
 
+	// Update
+	player.update(delta);
+	game.update(delta);
+
+	// Draw map and entities
 	game.drawMap();
 	game.drawBullets();
 	player.draw();
 
+	// Draw GUI
 	if(game.redrawGui)
 	{
 		gui2d.clearRect(0, 0, guiCanvas.width, guiCanvas.height);
@@ -522,17 +578,14 @@ function drawLoop() {
 		game.redrawGui = false;	
 	}
 
-	requestAnimationFrame(drawLoop);
+	// Show fps
+	var fps = Math.round(1/delta * 0.1)*10;
+	gui2d.clearRect(0, 0, 60, 30);
+	game.drawText(fps, 0, 0, true);
+
+	requestAnimationFrame(tick);
 }
 
 
-var updateInterval = setInterval(function(){
-	player.update();
-	game.update();
-	// some text test
-	// game.draw_damage_counters();
-
-}, 1000/60);
-
 // Start drawing
-drawLoop();
+tick();

@@ -6,24 +6,22 @@ window.bitmapCanvas = document.createElement("canvas");
 bitmapCanvas.src = "assets/tileset.png";
 
 function getBlockById(id) {
-	var x = null, y = null, connects = null, obstacle = null;
 	switch(id)
 	{
 		// floor
-		case 1: x = 0; y = 0; connects = 1; obstacle = false; break;
+		case 1:  return { x: 0, y: 0,    connects: 1, obstacle: false, bulletproof: 0 };
 		// asphalt
-		case 2: x = 14*8; y = 0; connects = 0; obstacle = false; break;
+		case 2:  return { x: 14*8, y: 0, connects: 0, obstacle: false, bulletproof: 0 };
 		// brick
-		case 3: x = 0; y = 8*3; connects = 1; obstacle = true; break;
+		case 3:  return { x: 0, y: 8*3,  connects: 1, obstacle: true,  bulletproof: 1 };
 		// wall
-		case 4: x = 0; y = 8*6; connects = 1; obstacle = true; break;
+		case 4:  return { x: 0, y: 8*6,  connects: 1, obstacle: true,  bulletproof: 1 };
 		// shaded water
-		case 5: x = 96; y = 0; connects = 0; obstacle = false; break;
+		case 5:  return { x: 96, y: 0,   connects: 0, obstacle: false, bulletproof: 0 };
 		// undefined
-		default: x = 96; y = 104; connects = 0; obstacle = true;
+		default: return { x: 96, y: 104, connects: 0, obstacle: true,  bulletproof: 0 };
 
 	}
-	return {x: x, y: y, connects: connects, obstacle: obstacle};
 }
 
 
@@ -32,23 +30,17 @@ function getObjectById(id) {
 	switch(id)
 	{
 		// box
-		case 1: x = 8*14; y = 8*2; connects = 0; obstacle = true; break;
+		case 1:  return { x: 8*14, y: 8*2, connects: 0, obstacle: true,  bulletproof: 2 };
 		// test
-		case 2: x = 8*12; y = 8*2; connects = 0; obstacle = false; break;
+		case 2:  return { x: 8*12, y: 8*2, connects: 0, obstacle: false, bulletproof: 0 };
 		// glass horizontal
-		case 3: x = 8*8; y = 8*0; connects = 2; obstacle = true; break;
+		case 3:  return { x: 8*8,  y: 8*0, connects: 2, obstacle: true,  bulletproof: 2 };
 		// glass vertical
-		case 4: x = 8*10; y = 8*2; connects = 3; obstacle = true; break;
+		case 4:  return { x: 8*10, y: 8*2, connects: 3, obstacle: true,  bulletproof: 2 };
 		// undefined
-		default: x = 96; y = 104; connects = 0; obstacle = false;
+		default: return { x: 96,   y: 104, connects: 0, obstacle: false, bulletproof: 0 };
 
 	}
-	return {
-		x: x, 
-		y: y, 
-		connects: connects,
-		obstacle: obstacle,
-	};
 }
 
 function Entity(id, type) {
@@ -76,4 +68,9 @@ function Entity(id, type) {
 	this.connects = entity.connects;
 	// Used for checking wall collision
 	this.obstacle = entity.obstacle;
+	// Used for bullet collision
+	// 0 - bulelts pass
+	// 1 - bullets stop
+	// 2 - bullets shatter entity (todo later)
+	this.bulletproof = entity.bulletproof;
 }

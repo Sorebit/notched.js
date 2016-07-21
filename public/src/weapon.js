@@ -7,10 +7,11 @@ function Bullet(type, origX, origY, dx, dy) {
 	this.dy = dy;
 	this.distanceX = 0;
 	this.distanceY = 0;
+	this.shouldRemove = false;
 	switch(type) {
 		// Normal bullet
-		case 0:  this.speed = 8; break;
-		default: this.speed = 1;
+		case 0:  this.speed = 360; break;
+		default: this.speed = 128;
 	}
 }
 

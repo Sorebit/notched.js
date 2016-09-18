@@ -1,10 +1,9 @@
 #notched.js
 
-A JS-based tile map editor
+It used to be an almost working tilemap editor, now it's an even less working top-down shooter engine.
 
-Graphics and overall view is based on one of [Notch's livestreams](http://www.twitch.tv/notch/v/38122240)
+![preview](https://raw.githubusercontent.com/Sorebit/notched.js/master/public/assets/preview.png)
 
---
-![alt text](https://raw.githubusercontent.com/Sorebit/notched.js/master/public/assets/preview.png)
-
-The preview quality is pretty choppy to be honest, but the actual render is pixel perfect (browser dependent)
+## Usage
+- `npm install` to install dependencies
+- `npm start` to run localhost server

@@ -2,7 +2,7 @@
 
 It used to be an almost working tilemap editor, now it's an even less working top-down shooter engine.
 
-![preview](https://raw.githubusercontent.com/Sorebit/notched.js/master/public/assets/preview.png)
+![preview](https://raw.githubusercontent.com/Sorebit/notched.js/master/client/assets/preview.png)
 
 ## Usage
 - `npm install` to install dependencies

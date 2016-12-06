@@ -7,5 +7,5 @@ It used to be an almost working tilemap editor, now it's an even less working to
 - `npm start` to run localhost server
 
 ### Preview
-![preview](/assets/preview.png)
+![preview](/client/assets/preview.png)
 

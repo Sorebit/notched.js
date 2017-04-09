@@ -1,8 +1,10 @@
 'use strict';
 
 var Tile = function() {
-	// [uu, rr, dd, ll, ul, ur, dr, dl] - in dir
-	// [dl, dr, ur, ul, ll, dd, rr, uu] - in binary
+	// 4 0 5
+	// 3   2
+	// 7 1 6
+	// [uu, rr, dd, ll, ul, ur, dr, dl]
 	var dir = [[-1, 0], [0, 1], [1, 0], [0, -1], [-1, -1], [-1, 1], [1, 1], [1, -1]];
 
 	function Tile(game, x, y, type) {
@@ -67,35 +69,35 @@ var Tile = function() {
 		var x4 = 2, y4 = 2;
 		var ngh = this.neighbours;
 
-		// one up
+		// Up
 		if(ngh & (1 << 0)) {
 			y1++; y2++;
-			//  right
+			// Upper right
 			if(ngh & (1 << 1) && ~ngh & (1 << 5)) {
 				x2 = 4; y2 = 1;
 			}
-			// left
+			// Upper left
 			if( ngh & (1 << 3) && ~ngh & (1 << 4)) {
 				x1 = 3; y1 = 1;
 			}
 		}
-		// //one right
+		// Right
 		if(ngh & (1 << 1)) {
 			x2--; x4--;
 		}
-		// one down
+		// Down
 		if(ngh & (1 << 2)) {
 			y3--; y4--;
-			// lower right
+			// Down right
 			if(ngh & (1 << 1) && ~ngh & (1 << 6) ) {
 				x4 = 3; y4 = 0;
 			}
-			// lower left
+			// Down left
 			if(ngh & (1 << 3) && ~ngh & (1 << 7) ) {
 				x3 = 3; y3 = 0;
 			}
 		}
-		// one left
+		// Left
 		if(ngh & (1 << 3)) {
 			x1++; x3++;
 		}

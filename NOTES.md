@@ -11,8 +11,3 @@
   - Bullet color - Blue
 - **Ring gun**:
   - Similiar to blockers, circular burst (called *ring* in weapons.js)
-
-### To do:
-- Fix collision (as if it was working once)
-- Lerp camera
-- Fullscreen and zoom

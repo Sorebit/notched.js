@@ -20,6 +20,7 @@ var Tile = function() {
 	};
 
 	Tile.prototype.updateNeighbours = function() {
+		this.neighbours = 0;
 		for(var off = 0; off < dir.length; off++) {
 			var y = this.y + dir[off][0];
 			var x = this.x + dir[off][1];
@@ -47,7 +48,7 @@ var Tile = function() {
 
 		// dirt
 		if(this.type === 0) {
-			this.game.ctx.drawImage(this.game.tileset, 224, 0, 2 * ts, 2 * ts, x, y, 2 * th, 2 * th);
+			this.game.ctx.drawImage(this.game.tileset, this.game.tileset.width - 2 * ts, 0, 2 * ts, 2 * ts, x, y, 2 * th, 2 * th);
 			return;
 		}
 
